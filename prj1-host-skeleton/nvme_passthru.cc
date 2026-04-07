@@ -152,9 +152,7 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
     cmd->cdw12 = my->cdw12;
     break;
   }
-
-  __u64
-  ioctl();
+  ioctl(fd_, NVME_IOCTL_IO_CMD, cmd);
 
   return -1; // placeholder
 }
