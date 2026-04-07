@@ -59,10 +59,11 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
   my_cmd *my;
   my->opcode = NVME_CMD_WRITE;
   my->nsid = 1; // ??
+  std::vector<uint8_t> local_buf(buf);
 
-  uint32_t aligned = ((buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  buf.resize(aligned);
-  my->addr = (uint64_t)buf.data();
+  uint32_t aligned = ((local_buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
+  local_buf.resize(aligned);
+  my->addr = (uint64_t)local_buf.data();
   my->size = aligned;
   my->cdw12 = (aligned / BLOCK_SIZE) - 1;
   nvme_passthru(my);
@@ -93,10 +94,11 @@ int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
   my_cmd *my;
   my->opcode = NVME_CMD_READ;
   my->nsid = 1; // ??
+  std::vector<uint8_t> local_buf(buf);
 
   uint32_t aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  buf.resize(aligned);
-  my->addr = (uint64_t)buf.data();
+  local_buf.resize(aligned);
+  my->addr = (uint64_t)local_buf.data();
   my->size = aligned;
   my->cdw12 = (aligned / BLOCK_SIZE) - 1;
   nvme_passthru(my);
