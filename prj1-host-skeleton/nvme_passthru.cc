@@ -59,15 +59,22 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
   my_cmd my;
   my.opcode = NVME_CMD_WRITE;
   my.nsid = NSID;
-  std::vector<uint8_t> local_buf(buf);
 
-  uint32_t aligned = ((local_buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  local_buf.resize(aligned);
-  my.addr = (uint64_t)local_buf.data();
+  uint32_t aligned = ((buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
+
+  void *aligned_buf = NULL;
+  if (posix_memalign(&aligned_buf, PAGE_SIZE, aligned) != 0)
+    return -ENOMEM;
+  memset(aligned_buf, 0, aligned);
+  memcpy(aligned_buf, buf.data(), buf.size());
+
+  my.addr = (uint64_t)aligned_buf;
   my.size = aligned;
   my.cdw12 = (aligned / BLOCK_SIZE) - 1;
 
-  return nvme_passthru(&my);
+  int ret = nvme_passthru(&my);
+  free(aligned_buf);
+  return ret;
 }
 
 int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
@@ -91,13 +98,21 @@ int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
   my.nsid = NSID;
 
   uint32_t aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  buf.resize(aligned);
-  my.addr = (uint64_t)buf.data();
+
+  void *aligned_buf = NULL;
+  if (posix_memalign(&aligned_buf, PAGE_SIZE, aligned) != 0)
+    return -ENOMEM;
+  memset(aligned_buf, 0, aligned);
+
+  my.addr = (uint64_t)aligned_buf;
   my.size = aligned;
   my.cdw12 = (aligned / BLOCK_SIZE) - 1;
 
   int ret = nvme_passthru(&my);
-  buf.resize(size);
+  if (ret == 0) {
+    buf.assign((uint8_t *)aligned_buf, (uint8_t *)aligned_buf + size);
+  }
+  free(aligned_buf);
   return ret;
 }
 
