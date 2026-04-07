@@ -12,10 +12,10 @@
 #include <cstdio>
 #include <inttypes.h>
 
-#define FLUSH 0x00;
-#define WRITE 0x01;
-#define READ 0x02;
-#define BLOCK_SIZE 512;
+#define FLUSH 0x00
+#define WRITE 0x01
+#define READ 0x02
+#define BLOCK_SIZE 512
 
 using namespace std;
 
@@ -61,10 +61,11 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
   my->nsid = 1; // ??
 
   uint32_t aligned = ((buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  buf.resize(aligned, 0);
+  buf.resize(aligned);
   my->addr = (uint64_t)buf.data();
   my->size = aligned;
   my->cdw12 = (aligned / BLOCK_SIZE) - 1;
+  nvme_passthru(my);
 
   // __u32 dword_10 = static_cast<uint32_t> (addr & 0xFFFFFFFF);
   // __u32 dword_11 = static_cast<uint32_t> ((addr >> 32) & 0xFFFFFFFF);
@@ -94,10 +95,11 @@ int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
   my->nsid = 1; // ??
 
   uint32_t aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  buf.resize(aligned, 0);
+  buf.resize(aligned);
   my->addr = (uint64_t)buf.data();
   my->size = aligned;
   my->cdw12 = (aligned / BLOCK_SIZE) - 1;
+  nvme_passthru(my);
 
   return -1; // placeholder
 }
@@ -131,7 +133,7 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   // /home/embe2024/workspace/GreedyFTL/cosmos_app/src/nvme/nvme_io_cmd.c
   struct nvme_passthru_cmd *cmd;
 
-  switch (my.opcode)
+  switch (my->opcode)
   {
   case NVME_CMD_READ:
     cmd->opcode = NVME_CMD_READ;
@@ -156,51 +158,3 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
 
   return -1; // placeholder
 }
-
-// typedef struct _NVME_IO_COMMAND
-// {
-// 	union {
-// 		unsigned int dword[16];
-// 		struct {
-// 			struct {
-// 				unsigned char OPC;
-// 				unsigned char FUSE			:2;
-// 				unsigned char reserved0		:5;
-// 				unsigned char PSDT			:1;
-// 				unsigned short CID;
-// 			};
-// 			unsigned int NSID;
-// 			unsigned int reserved1[2];
-// 			unsigned int MPTR[2];
-// 			unsigned int PRP1[2];
-// 			unsigned int PRP2[2];
-// 			unsigned int dword10;
-// 			unsigned int dword11;
-// 			unsigned int dword12;
-// 			unsigned int dword13;
-// 			unsigned int dword14;
-// 			unsigned int dword15;
-// 		};
-// 	};
-// }NVME_IO_COMMAND;
-
-// struct nvme_passthru_cmd {
-// 	__u8	opcode;
-// 	__u8	flags;
-// 	__u16	rsvd1;
-// 	__u32	nsid;
-// 	__u32	cdw2;
-// 	__u32	cdw3;
-// 	__u64	metadata;
-// 	__u64	addr;
-// 	__u32	metadata_len;
-// 	__u32	data_len;
-// 	__u32	cdw10;
-// 	__u32	cdw11;
-// 	__u32	cdw12;
-// 	__u32	cdw13;
-// 	__u32	cdw14;
-// 	__u32	cdw15;
-// 	__u32	timeout_ms;
-// 	__u32	result;
-// };
