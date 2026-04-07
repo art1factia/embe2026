@@ -15,9 +15,8 @@ namespace Embedded {
         unsigned int nsid;
         unsigned long addr;
         unsigned int size;
+        unsigned int cdw10;
         unsigned int cdw12;
-        // unsigned_int prp1[2];
-        // unsigned_int prp2[2];
     };
     class Proj1 {
         public:

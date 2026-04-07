@@ -56,25 +56,44 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
    *
    * Return 0 on success, or a negative error code on failure.
    * ------------------------------------------------------------------ */
-  my_cmd my;
-  my.opcode = NVME_CMD_WRITE;
-  my.nsid = NSID;
+  uint32_t total_aligned = ((buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
 
-  uint32_t aligned = ((buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-
-  void *aligned_buf = NULL;
-  if (posix_memalign(&aligned_buf, PAGE_SIZE, aligned) != 0)
+  void *chunk_buf = NULL;
+  if (posix_memalign(&chunk_buf, PAGE_SIZE, PAGE_SIZE) != 0)
     return -ENOMEM;
-  memset(aligned_buf, 0, aligned);
-  memcpy(aligned_buf, buf.data(), buf.size());
 
-  my.addr = (uint64_t)aligned_buf;
-  my.size = aligned;
-  my.cdw12 = (aligned / BLOCK_SIZE) - 1;
+  uint32_t offset = 0;
+  uint32_t lba = 0;
+  while (offset < total_aligned) {
+    uint32_t chunk = PAGE_SIZE;
+    if (offset + chunk > total_aligned)
+      chunk = total_aligned - offset;
 
-  int ret = nvme_passthru(&my);
-  free(aligned_buf);
-  return ret;
+    memset(chunk_buf, 0, PAGE_SIZE);
+    uint32_t copy_len = (offset + chunk <= buf.size()) ? chunk : (buf.size() > offset ? buf.size() - offset : 0);
+    if (copy_len > 0)
+      memcpy(chunk_buf, buf.data() + offset, copy_len);
+
+    my_cmd my;
+    my.opcode = NVME_CMD_WRITE;
+    my.nsid = NSID;
+    my.addr = (uint64_t)chunk_buf;
+    my.size = chunk;
+    my.cdw12 = (chunk / BLOCK_SIZE) - 1;
+    my.cdw10 = lba;
+
+    int ret = nvme_passthru(&my);
+    if (ret < 0) {
+      free(chunk_buf);
+      return ret;
+    }
+
+    offset += chunk;
+    lba += chunk / BLOCK_SIZE;
+  }
+
+  free(chunk_buf);
+  return 0;
 }
 
 int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
@@ -93,27 +112,46 @@ int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
    * Return 0 on success, or a negative error code on failure.
    * ------------------------------------------------------------------ */
 
-  my_cmd my;
-  my.opcode = NVME_CMD_READ;
-  my.nsid = NSID;
+  uint32_t total_aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
 
-  uint32_t aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-
-  void *aligned_buf = NULL;
-  if (posix_memalign(&aligned_buf, PAGE_SIZE, aligned) != 0)
+  void *chunk_buf = NULL;
+  if (posix_memalign(&chunk_buf, PAGE_SIZE, PAGE_SIZE) != 0)
     return -ENOMEM;
-  memset(aligned_buf, 0, aligned);
 
-  my.addr = (uint64_t)aligned_buf;
-  my.size = aligned;
-  my.cdw12 = (aligned / BLOCK_SIZE) - 1;
+  buf.resize(size);
+  uint32_t offset = 0;
+  uint32_t lba = 0;
+  while (offset < total_aligned) {
+    uint32_t chunk = PAGE_SIZE;
+    if (offset + chunk > total_aligned)
+      chunk = total_aligned - offset;
 
-  int ret = nvme_passthru(&my);
-  if (ret == 0) {
-    buf.assign((uint8_t *)aligned_buf, (uint8_t *)aligned_buf + size);
+    memset(chunk_buf, 0, PAGE_SIZE);
+
+    my_cmd my;
+    my.opcode = NVME_CMD_READ;
+    my.nsid = NSID;
+    my.addr = (uint64_t)chunk_buf;
+    my.size = chunk;
+    my.cdw12 = (chunk / BLOCK_SIZE) - 1;
+    my.cdw10 = lba;
+
+    int ret = nvme_passthru(&my);
+    if (ret < 0) {
+      free(chunk_buf);
+      return ret;
+    }
+
+    uint32_t copy_len = (offset + chunk <= size) ? chunk : (size > offset ? size - offset : 0);
+    if (copy_len > 0)
+      memcpy(buf.data() + offset, chunk_buf, copy_len);
+
+    offset += chunk;
+    lba += chunk / BLOCK_SIZE;
   }
-  free(aligned_buf);
-  return ret;
+
+  free(chunk_buf);
+  return 0;
 }
 
 int Embedded::Proj1::Hello()
@@ -147,7 +185,7 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   cmd.nsid = my->nsid;
   cmd.addr = my->addr;
   cmd.data_len = my->size;
-  cmd.cdw10 = 0;
+  cmd.cdw10 = my->cdw10;
   cmd.cdw11 = 0;
   cmd.cdw12 = my->cdw12;
 
