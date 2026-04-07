@@ -152,8 +152,12 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   cmd.cdw12 = my->cdw12;
 
   int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
-  if (ret < 0)
+  if (ret < 0) {
+    perror("ioctl NVME_IOCTL_IO_CMD failed");
+    fprintf(stderr, "  opcode=0x%02x nsid=%u data_len=%u cdw12=%u ret=%d\n",
+            cmd.opcode, cmd.nsid, cmd.data_len, cmd.cdw12, ret);
     return ret;
+  }
 
   return 0;
 }
