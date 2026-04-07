@@ -26,7 +26,7 @@ const unsigned int NSID = 1;                      /* NSID can be checked using '
 int Embedded::Proj1::Open(const std::string &dev)
 {
   int err;
-  err = open(dev.c_str(), O_RDONLY);
+  err = open(dev.c_str(), O_RDWR);
   if (err < 0)
     return -1;
   fd_ = err;
