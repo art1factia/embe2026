@@ -56,23 +56,18 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
    *
    * Return 0 on success, or a negative error code on failure.
    * ------------------------------------------------------------------ */
-  my_cmd *my;
-  my->opcode = NVME_CMD_WRITE;
-  my->nsid = 1; // ??
+  my_cmd my;
+  my.opcode = NVME_CMD_WRITE;
+  my.nsid = NSID;
   std::vector<uint8_t> local_buf(buf);
 
   uint32_t aligned = ((local_buf.size() + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
   local_buf.resize(aligned);
-  my->addr = (uint64_t)local_buf.data();
-  my->size = aligned;
-  my->cdw12 = (aligned / BLOCK_SIZE) - 1;
-  nvme_passthru(my);
+  my.addr = (uint64_t)local_buf.data();
+  my.size = aligned;
+  my.cdw12 = (aligned / BLOCK_SIZE) - 1;
 
-  // __u32 dword_10 = static_cast<uint32_t> (addr & 0xFFFFFFFF);
-  // __u32 dword_11 = static_cast<uint32_t> ((addr >> 32) & 0xFFFFFFFF);
-  // my->dword[10] =dword_10;
-  // my->dword[11] = dword_11;
-  return -1; // placeholder
+  return nvme_passthru(&my);
 }
 
 int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
@@ -91,19 +86,19 @@ int Embedded::Proj1::ImageRead(std::vector<uint8_t> &buf, size_t size)
    * Return 0 on success, or a negative error code on failure.
    * ------------------------------------------------------------------ */
 
-  my_cmd *my;
-  my->opcode = NVME_CMD_READ;
-  my->nsid = 1; // ??
-  std::vector<uint8_t> local_buf(buf);
+  my_cmd my;
+  my.opcode = NVME_CMD_READ;
+  my.nsid = NSID;
 
   uint32_t aligned = ((size + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
-  local_buf.resize(aligned);
-  my->addr = (uint64_t)local_buf.data();
-  my->size = aligned;
-  my->cdw12 = (aligned / BLOCK_SIZE) - 1;
-  nvme_passthru(my);
+  buf.resize(aligned);
+  my.addr = (uint64_t)buf.data();
+  my.size = aligned;
+  my.cdw12 = (aligned / BLOCK_SIZE) - 1;
 
-  return -1; // placeholder
+  int ret = nvme_passthru(&my);
+  buf.resize(size);
+  return ret;
 }
 
 int Embedded::Proj1::Hello()
@@ -131,32 +126,19 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
    * - Link: https://elixir.bootlin.com/linux/v5.15/source/include/uapi/linux/nvme_ioctl.h
    * ------------------------------------------------------------------ */
 
-  // ioctl syscall(user custom command, nvme_io_cmd struct) -> driver -> firmware
-  // /home/embe2024/workspace/GreedyFTL/cosmos_app/src/nvme/nvme_io_cmd.c
-  struct nvme_passthru_cmd *cmd;
+  struct nvme_passthru_cmd cmd = {};
 
-  switch (my->opcode)
-  {
-  case NVME_CMD_READ:
-    cmd->opcode = NVME_CMD_READ;
-    cmd->addr = my->addr;
-    cmd->nsid = my->nsid;
-    cmd->data_len = my->size;
-    cmd->cdw10 = 0;
-    cmd->cdw11 = 0;
-    cmd->cdw12 = my->cdw12;
-    break;
-  case NVME_CMD_WRITE:
-    cmd->opcode = NVME_CMD_WRITE;
-    cmd->addr = my->addr;
-    cmd->nsid = my->nsid;
-    cmd->data_len = my->size;
-    cmd->cdw10 = 0;
-    cmd->cdw11 = 0;
-    cmd->cdw12 = my->cdw12;
-    break;
-  }
-  ioctl(fd_, NVME_IOCTL_IO_CMD, cmd);
+  cmd.opcode = my->opcode;
+  cmd.nsid = my->nsid;
+  cmd.addr = my->addr;
+  cmd.data_len = my->size;
+  cmd.cdw10 = 0;
+  cmd.cdw11 = 0;
+  cmd.cdw12 = my->cdw12;
 
-  return -1; // placeholder
+  int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
+  if (ret < 0)
+    return ret;
+
+  return 0;
 }
