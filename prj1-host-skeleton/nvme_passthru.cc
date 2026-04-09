@@ -188,13 +188,16 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   cmd.cdw10 = my->cdw10;
   cmd.cdw11 = 0;
   cmd.cdw12 = my->cdw12;
+  cmd.timeout_ms = 5000;
+
+  fprintf(stderr, "[DEBUG] ioctl: opcode=0x%02x lba=%u nblocks=%u data_len=%u\n",
+          cmd.opcode, cmd.cdw10, cmd.cdw12 + 1, cmd.data_len);
 
   int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
-  if (ret < 0) {
+  if (ret != 0) {
     perror("ioctl NVME_IOCTL_IO_CMD failed");
-    fprintf(stderr, "  opcode=0x%02x nsid=%u data_len=%u cdw12=%u ret=%d\n",
-            cmd.opcode, cmd.nsid, cmd.data_len, cmd.cdw12, ret);
-    return ret;
+    fprintf(stderr, "  ret=%d\n", ret);
+    return ret < 0 ? ret : -EIO;
   }
 
   return 0;
