@@ -83,6 +83,7 @@ int Embedded::Proj1::ImageWrite(const std::vector<uint8_t> &buf)
     my.cdw10 = lba;
 
     int ret = nvme_passthru(&my);
+    fprintf(stderr, "size: %5d offset: %5d ret: %3d\n", chunk, offset, ret);
     if (ret < 0) {
       free(chunk_buf);
       return ret;
@@ -194,6 +195,7 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
           cmd.opcode, cmd.cdw10, cmd.cdw12 + 1, cmd.data_len);
 
   int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
+  fprintf(stderr, "ret: %5d\n", ret);
   if (ret != 0) {
     perror("ioctl NVME_IOCTL_IO_CMD failed");
     fprintf(stderr, "  ret=%d\n", ret);
