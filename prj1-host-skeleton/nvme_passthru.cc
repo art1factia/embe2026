@@ -15,7 +15,7 @@
 #define FLUSH 0x00
 #define WRITE 0x01
 #define READ 0x02
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE 4096
 
 using namespace std;
 
@@ -163,7 +163,13 @@ int Embedded::Proj1::Hello()
    * Return 0 on success, or a negative error code on failure.
    * ------------------------------------------------------------------ */
 
-  return -1; // placeholder
+my_cmd my;
+my.opcode = 0x99;
+  int ret = nvme_passthru(&my);
+  if(ret < 0){
+    return ret;
+  }
+  return 0; // placeholder
 }
 
 int Embedded::Proj1::nvme_passthru(my_cmd *my)
@@ -180,7 +186,20 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
    * - Link: https://elixir.bootlin.com/linux/v5.15/source/include/uapi/linux/nvme_ioctl.h
    * ------------------------------------------------------------------ */
 
+
   struct nvme_passthru_cmd cmd = {};
+
+  if (my->opcode == 0x99) {
+    cmd.opcode = my->opcode;
+    int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
+    if (ret != 0) {
+    perror("[HELLO] ioctl NVME_IOCTL_IO_CMD failed");
+    fprintf(stderr, "  ret=%d\n", ret);
+    return ret < 0 ? ret : -EIO;
+  }
+
+  return 0;
+}
 
   cmd.opcode = my->opcode;
   cmd.nsid = my->nsid;
@@ -197,7 +216,7 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
   fprintf(stderr, "ret: %5d\n", ret);
   if (ret != 0) {
-    perror("ioctl NVME_IOCTL_IO_CMD failed");
+    perror("[RW] ioctl NVME_IOCTL_IO_CMD failed");
     fprintf(stderr, "  ret=%d\n", ret);
     return ret < 0 ? ret : -EIO;
   }

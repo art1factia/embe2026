@@ -134,6 +134,11 @@ void handle_nvme_io_cmd(NVME_COMMAND *nvmeCmd)
 
 	switch(opc)
 	{
+		case IO_NVM_HELLO:
+		{
+			xil_printf("hi my name is tomato");
+			break;
+		}
 		case IO_NVM_FLUSH:
 		{
 		//	xil_printf("IO Flush Command\r\n");
