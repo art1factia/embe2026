@@ -26,7 +26,7 @@ const unsigned int NSID = 1;                      /* NSID can be checked using '
 int Embedded::Proj1::Open(const std::string &dev)
 {
   int err;
-  err = open(dev.c_str(), O_RDWR);
+  err = open(dev.c_str(), O_RDONLY);
   if (err < 0)
     return -1;
   fd_ = err;
@@ -164,7 +164,12 @@ int Embedded::Proj1::Hello()
    * ------------------------------------------------------------------ */
 
 my_cmd my;
-my.opcode = 0x99;
+my.opcode = NVME_CMD_HELLO;
+my.nsid = NSID;
+my.addr = 0;
+my.size = 0;
+my.cdw10 = 0;
+my.cdw12 = 0;
   int ret = nvme_passthru(&my);
   if(ret < 0){
     return ret;
@@ -189,8 +194,16 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
 
   struct nvme_passthru_cmd cmd = {};
 
-  if (my->opcode == 0x99) {
     cmd.opcode = my->opcode;
+  cmd.nsid = my->nsid;
+  cmd.addr = my->addr;
+  cmd.data_len = my->size;
+  cmd.cdw10 = my->cdw10;
+  cmd.cdw11 = 0;
+  cmd.cdw12 = my->cdw12;
+  cmd.timeout_ms = 1000;
+  if (my->opcode == NVME_CMD_HELLO) {
+
     int ret = ioctl(fd_, NVME_IOCTL_IO_CMD, &cmd);
     if (ret != 0) {
     perror("[HELLO] ioctl NVME_IOCTL_IO_CMD failed");
@@ -201,14 +214,6 @@ int Embedded::Proj1::nvme_passthru(my_cmd *my)
   return 0;
 }
 
-  cmd.opcode = my->opcode;
-  cmd.nsid = my->nsid;
-  cmd.addr = my->addr;
-  cmd.data_len = my->size;
-  cmd.cdw10 = my->cdw10;
-  cmd.cdw11 = 0;
-  cmd.cdw12 = my->cdw12;
-  cmd.timeout_ms = 5000;
 
   fprintf(stderr, "[DEBUG] ioctl: opcode=0x%02x lba=%u nblocks=%u data_len=%u\n",
           cmd.opcode, cmd.cdw10, cmd.cdw12 + 1, cmd.data_len);

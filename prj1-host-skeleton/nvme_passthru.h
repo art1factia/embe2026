@@ -8,6 +8,8 @@ namespace Embedded {
     enum nvme_opcode {
         NVME_CMD_WRITE                  = 0x01,
         NVME_CMD_READ                   = 0x02,
+
+        NVME_CMD_HELLO = 0x58
         /* Additional opcodes may be defined here */ 
     };
     struct my_cmd{
